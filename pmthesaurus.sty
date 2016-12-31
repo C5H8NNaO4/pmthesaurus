@@ -1,0 +1,135 @@
+
+
+\ProvidesPackage{pmthesaurus}[2016/12/28 Custom Package]
+
+
+\def\filenameEN{data.dat}
+\def\filenameDE{th_de_DE_v2.dat}
+\let\filename\filenameDE
+
+\DeclareOption{de}{
+  \global\def\filename{th_de_DE_v2.dat}
+  \typeout{\filename}
+}
+\DeclareOption{en}{
+   \global\def\filename{th_en_US_v2.dat}
+}
+
+\ExecuteOptions{de}
+\ProcessOptions\relax
+
+\usepackage[utf8]{inputenc}
+\DeclareUnicodeCharacter{03C0}{\pi}
+
+\usepackage{textcomp}
+
+%Redefine pipe character, to treat synonyms as seperate words for hyphenation, and to format the output
+\catcode`\|=13
+\def|{;  }
+
+
+\def\stop{stop}
+\def\start{start}
+\def\loopCondition{\start}
+
+%%%Variables used in parsing
+\def\vrb{procrastinating}
+%Either the number of meanings for an entry, or the synonyms
+\def\meaningsOrSynonyms{1}
+\def\linecontent{}
+
+\def\parseline__#1|#2__{%
+	\def\vrb{#1}%
+	\def\meaningsOrSynonyms{#2}% 
+	%\typeout{\#1: #1, \#2: #2}
+}
+\newcommand{\processline}{%
+	\let\linecontent\fileline%	
+	\ifx\linecontent\empty%
+		%\typeout{Skipping line \arabic{step}}%
+	\else%
+		\expandafter\parseline\expandafter_\expandafter_\linecontent\empty__%
+	\fi%	
+}
+
+%%%Vars of \thes
+\def\displ{}
+\newcounter{step}
+\newcounter{substep}
+\def\loopLimit{500000}
+
+\newcommand{\thes}[2][\displ]{%
+	\def#1{#2: not found}%
+	\def\temp{#2:%
+	}%
+	\newread\file%
+	\openin\file=\filename%
+	%Skip first line
+	\read\file to\fileline%
+%
+	\setcounter{step}{0}%
+	\setcounter{substep}{0}%
+	%Set the looping condition to true
+	\def\loopCondition{start}%	
+%
+   	\def\searchString{#2}%
+	%Loop until it's set to stop
+	\loop\unless\ifx\loopCondition\stop%
+		\read\file to\fileline%
+		\ifeof\file%
+      			\let\loopCondition\stop%
+	    	\else%
+			\processline%
+			%\ignorespaces%\typeout{\vrb}
+			\ifx\vrb\searchString{%
+				%Here, \meaningsOrSynonyms is the number of entries, save it in a temp var
+				\let\cntTemp\meaningsOrSynonyms%
+				\setcounter{substep}{1}%
+				\loop\unless\ifx\loopCondition\stop%
+					\read\file to\fileline%
+					\processline%
+					\ifnum\numexpr\value{substep}<\cntTemp%
+						\let\tempA\temp%
+						\edef\temp{%
+							\tempA
+									
+							~~~~
+							[\arabic{substep}] \meaningsOrSynonyms
+						
+						}%
+					\else%
+						\global\edef#1{%
+							\temp  
+							
+							~~~~
+							[\arabic{substep}] \meaningsOrSynonyms
+						}%
+						%break the loop
+						\global\let\loopCondition\stop%
+					\fi%
+					\addtocounter{substep}{1}%
+				\repeat%
+				\global\let\loopCondition\stop%
+			}\fi%
+			\stepcounter{step}%
+			   %If loop limit exceeded, stop
+			\ifnum \numexpr\value{step}>\loopLimit%
+				\let\loopCondition\stop%
+			\fi%
+		\fi%
+    		%\typeout{\arabic{step}}%
+	\repeat%
+	\closein\file%
+	%Temporarily save \displ to reset it's value for the next run, since we're using it to check if there's a result macro
+	\let\temp\displ%
+	\def\displ{}%
+	%\ifx\displ\argumentOne - doesn't seem to work
+	\ifx\temp\empty%
+		asd#2%
+	\else%
+		(#2)\footnote{\temp}%
+	\fi%
+}
+
+
+\endinput
